@@ -1,7 +1,13 @@
 package com.example
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
+import com.example.core.network.SupabaseClient
+import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,6 +59,17 @@ import com.example.features.statistics.presentation.screen.StatisticsScreen
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // --- TEST KONEKSI SUPABASE ---
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val session = SupabaseClient.client.auth.currentSessionOrNull()
+                Log.d("SupabaseTest", "✅ Koneksi Berhasil! Status Sesi: $session")
+            } catch (e: Exception) {
+                Log.e("SupabaseTest", "❌ Koneksi Gagal: ${e.message}")
+            }
+        }
+
         enableEdgeToEdge()
         setContent {
             var isDark by remember { mutableStateOf(true) }
