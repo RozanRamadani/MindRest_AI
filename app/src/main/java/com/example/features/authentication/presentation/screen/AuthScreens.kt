@@ -67,6 +67,10 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.MailOutline
+import io.github.jan.supabase.auth.auth
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.features.authentication.presentation.viewmodel.AuthViewModel
 
 // Helper class to represent a star particle
 private data class StarParticle(
@@ -215,10 +219,15 @@ fun SplashScreen(
     LaunchedEffect(Unit) {
         delay(200)
         isTapEnabled = true
-        delay(2300) // Remaining time to reach 2500ms
+        delay(1300) // Wait 1.5s total before checking session
         if (!isNavigated) {
             isNavigated = true
-            onNavigateToOnboarding()
+            val session = com.example.core.network.SupabaseClient.client.auth.currentSessionOrNull()
+            if (session != null) {
+                onNavigateToHome()
+            } else {
+                onNavigateToOnboarding()
+            }
         }
     }
 
@@ -231,7 +240,12 @@ fun SplashScreen(
             ) {
                 if (isTapEnabled && !isNavigated) {
                     isNavigated = true
-                    onNavigateToOnboarding()
+                    val session = com.example.core.network.SupabaseClient.client.auth.currentSessionOrNull()
+                    if (session != null) {
+                        onNavigateToHome()
+                    } else {
+                        onNavigateToOnboarding()
+                    }
                 }
             }
     ) {
@@ -1042,12 +1056,25 @@ fun GoogleLogoIcon(modifier: Modifier = Modifier) {
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    modifier: Modifier = Modifier
+    viewModel: AuthViewModel = viewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.errorMessage, uiState.isSuccess) {
+        if (uiState.errorMessage != null) {
+            snackbarHostState.showSnackbar(uiState.errorMessage!!)
+            viewModel.onMessageShown()
+        } else if (uiState.isSuccess) {
+            onLoginSuccess()
+            viewModel.onMessageShown()
+        }
+    }
 
     val handleSignIn = {
         var isValid = true
@@ -1072,16 +1099,20 @@ fun LoginScreen(
         }
 
         if (isValid) {
-            onLoginSuccess()
+            viewModel.signIn(email, password)
         }
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .systemBarsPadding()
-    ) {
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(MaterialTheme.colorScheme.background)
+                .systemBarsPadding()
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1290,14 +1321,16 @@ fun LoginScreen(
             }
         }
     }
+    }
 }
 
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
     onNavigateToLogin: () -> Unit,
-    modifier: Modifier = Modifier
+    viewModel: AuthViewModel = viewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -1307,6 +1340,18 @@ fun RegisterScreen(
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
     var confirmPasswordError by remember { mutableStateOf<String?>(null) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.errorMessage, uiState.isSuccess) {
+        if (uiState.errorMessage != null) {
+            snackbarHostState.showSnackbar(uiState.errorMessage!!)
+            viewModel.onMessageShown()
+        } else if (uiState.isSuccess) {
+            onRegisterSuccess()
+            viewModel.onMessageShown()
+        }
+    }
 
     val handleRegister = {
         var isValid = true
@@ -1352,7 +1397,7 @@ fun RegisterScreen(
         }
 
         if (isValid) {
-            onRegisterSuccess()
+            viewModel.signUp(email, password)
         }
     }
 
@@ -1363,12 +1408,16 @@ fun RegisterScreen(
         MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .systemBarsPadding()
-    ) {
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(MaterialTheme.colorScheme.background)
+                .systemBarsPadding()
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1584,6 +1633,7 @@ fun RegisterScreen(
                         .testTag("sign_in_link")
                 )
             }
+        }
         }
     }
 }

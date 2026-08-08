@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
@@ -52,6 +53,7 @@ import com.example.features.notification.presentation.screen.NotificationScreen
 import com.example.features.profile.presentation.screen.ProfileScreen
 import com.example.features.relaxation.presentation.screen.AdvancedRelaxationScreen
 import com.example.features.reminder.presentation.screen.ReminderScreen
+import com.example.features.mood.presentation.screen.MoodTrackingScreen
 import com.example.features.settings.presentation.screen.SettingsScreen
 import com.example.features.sleep.presentation.screen.SleepHubScreen
 import com.example.features.statistics.presentation.screen.StatisticsScreen
@@ -73,7 +75,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             var isDark by remember { mutableStateOf(true) }
-            MindRestTheme(darkTheme = isDark) {
+            MindRestTheme(darkTheme = isDark, dynamicColor = false) {
                 MainApp(isDark = isDark, onToggleDark = { isDark = !isDark })
             }
         }
@@ -211,7 +213,7 @@ fun MainApp(
                     onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                     onNavigateToRecommendations = { navController.navigate(Screen.Sleep.route) },
                     onLogSleepClick = { navController.navigate(Screen.Sleep.route) },
-                    onMoodSelected = { _ -> },
+                    onMoodSelected = { _ -> navController.navigate(Screen.Mood.route) },
                     onNavigateToLifestyle = { navController.navigate(Screen.Lifestyle.route) },
                     onNavigateToReminder = { navController.navigate(Screen.Reminder.route) },
                     onNavigateToStatistics = { navController.navigate(Screen.Statistics.route) }
@@ -241,13 +243,23 @@ fun MainApp(
 
             // Profile Tab
             composable(Screen.Profile.route) {
+                val coroutineScope = rememberCoroutineScope()
                 ProfileScreen(
                     onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                     onNavigateToStatistics = { navController.navigate(Screen.Statistics.route) },
                     onNavigateToAchievements = { navController.navigate(Screen.Achievements.route) },
                     onSignOut = {
-                        navController.navigate(Screen.Login.route) {
-                            popUpTo(Screen.Home.route) { inclusive = true }
+                        coroutineScope.launch(Dispatchers.IO) {
+                            try {
+                                com.example.core.network.SupabaseClient.client.auth.signOut()
+                            } catch (e: Exception) {
+                                Log.e("Auth", "Logout failed: ${e.message}")
+                            }
+                            launch(Dispatchers.Main) {
+                                navController.navigate(Screen.Login.route) {
+                                    popUpTo(Screen.Home.route) { inclusive = true }
+                                }
+                            }
                         }
                     }
                 )
@@ -312,6 +324,14 @@ fun MainApp(
             composable(Screen.Achievements.route) {
                 AchievementsScreen(
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            
+            // Mood Tracking Screen
+            composable(Screen.Mood.route) {
+                MoodTrackingScreen(
+                    // MoodTrackingScreen doesn't have an explicit onNavigateBack in its constructor yet, 
+                    // but we can add the route so it's accessible.
                 )
             }
         }

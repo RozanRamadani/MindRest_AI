@@ -20,6 +20,23 @@ class MoodViewModel(
     private val _uiState = MutableStateFlow(MoodUiState())
     val uiState: StateFlow<MoodUiState> = _uiState.asStateFlow()
 
+    init {
+        fetchHistory()
+    }
+
+    fun fetchHistory() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingHistory = true) }
+            val result = repository.getRecentMoodLogs()
+            _uiState.update {
+                it.copy(
+                    isLoadingHistory = false,
+                    moodHistory = result.getOrNull() ?: emptyList()
+                )
+            }
+        }
+    }
+
     fun onMoodSelected(mood: Int) {
         _uiState.update { it.copy(selectedMood = mood) }
     }
@@ -49,7 +66,7 @@ class MoodViewModel(
             
             _uiState.update {
                 if (result.isSuccess) {
-                    it.copy(isSaving = false, errorMessage = null, selectedMood = null, isSuccess = true)
+                    it.copy(isSaving = false, errorMessage = null, selectedMood = null, isSuccess = true).also { fetchHistory() }
                 } else {
                     it.copy(isSaving = false, errorMessage = result.exceptionOrNull()?.message ?: "Failed to save mood", isSuccess = false)
                 }

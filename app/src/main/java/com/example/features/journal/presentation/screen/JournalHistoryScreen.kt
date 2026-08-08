@@ -45,40 +45,24 @@ import com.example.core.designsystem.MindRestTheme
 
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
+import com.example.features.journal.presentation.viewmodel.JournalViewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JournalHistoryScreen(
+    viewModel: JournalViewModel = viewModel(),
     onNavigateBack: () -> Unit,
     onStartNewSessionClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val mockEntries = listOf(
-        JournalEntryData(
-            date = "12 Oktober 2023",
-            moodEmoji = "😔",
-            moodText = "Cemas",
-            summary = "Membahas rasa gugup menghadapi tenggat waktu proyek. Fokus pada teknik pernapasan 4-7-8."
-        ),
-        JournalEntryData(
-            date = "11 Oktober 2023",
-            moodEmoji = "😐",
-            moodText = "Overthinking",
-            summary = "Mengeksplorasi pikiran yang terus berputar tentang masa depan karir. Menemukan beberapa langkah kecil yang bisa diambil."
-        ),
-        JournalEntryData(
-            date = "09 Oktober 2023",
-            moodEmoji = "😊",
-            moodText = "Tenang",
-            summary = "Sesi singkat tentang rasa syukur. Merasa lebih damai setelah melakukan jalan sore."
-        ),
-        JournalEntryData(
-            date = "08 Oktober 2023",
-            moodEmoji = "😫",
-            moodText = "Lelah",
-            summary = "Kelelahan fisik dan mental setelah rapat panjang. Mengidentifikasi kebutuhan untuk tidur lebih awal hari ini."
-        )
-    )
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -134,15 +118,46 @@ fun JournalHistoryScreen(
                     modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                 )
             }
-            
-            items(mockEntries) { entry ->
-                JournalEntryCard(
-                    entry = entry,
-                    onClick = { /* TODO: Navigate to journal detail */ },
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .fillMaxWidth()
-                )
+            if (uiState.isLoadingHistory) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else if (uiState.journalHistory.isEmpty()) {
+                item {
+                    Text(
+                        text = "Belum ada riwayat jurnal.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            } else {
+                items(uiState.journalHistory) { entry ->
+                    // Format date (e.g. 2023-10-12T10:00:00Z -> 12 Oktober 2023)
+                    val dateStr = try {
+                        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                        val date = format.parse(entry.createdAt)
+                        val outFormat = SimpleDateFormat("dd MMMM yyyy", Locale("id", "ID"))
+                        if (date != null) outFormat.format(date) else entry.createdAt.take(10)
+                    } catch (e: Exception) {
+                        entry.createdAt.take(10)
+                    }
+                    
+                    JournalEntryCard(
+                        entry = JournalEntryData(
+                            date = dateStr,
+                            moodEmoji = "📝",
+                            moodText = "Jurnal",
+                            summary = entry.content
+                        ),
+                        onClick = { /* TODO: Navigate to journal detail */ },
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .fillMaxWidth()
+                    )
+                }
             }
         }
     }

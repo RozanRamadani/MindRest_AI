@@ -21,6 +21,23 @@ class JournalViewModel(
     private val _uiState = MutableStateFlow(JournalUiState())
     val uiState: StateFlow<JournalUiState> = _uiState.asStateFlow()
 
+    init {
+        fetchHistory()
+    }
+
+    fun fetchHistory() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingHistory = true) }
+            val result = repository.getRecentJournals()
+            _uiState.update {
+                it.copy(
+                    isLoadingHistory = false,
+                    journalHistory = result.getOrNull() ?: emptyList()
+                )
+            }
+        }
+    }
+
     fun onTextChanged(text: String) {
         _uiState.update { it.copy(journalText = text) }
     }
@@ -53,7 +70,7 @@ class JournalViewModel(
                         journalText = "",
                         errorMessage = null,
                         isSuccess = true
-                    ) 
+                    ).also { fetchHistory() } // Refresh history
                 } else {
                     it.copy(
                         isSaving = false,

@@ -26,6 +26,23 @@ class SleepViewModel(
     private val _uiState = MutableStateFlow(SleepUiState())
     val uiState: StateFlow<SleepUiState> = _uiState.asStateFlow()
 
+    init {
+        fetchHistory()
+    }
+
+    fun fetchHistory() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingHistory = true) }
+            val result = repository.getRecentSleepLogs()
+            _uiState.update {
+                it.copy(
+                    isLoadingHistory = false,
+                    sleepHistory = result.getOrNull() ?: emptyList()
+                )
+            }
+        }
+    }
+
     fun onBedTimeChanged(time: String) {
         _uiState.update { 
             it.copy(
@@ -74,7 +91,7 @@ class SleepViewModel(
             
             _uiState.update {
                 if (result.isSuccess) {
-                    it.copy(isSaving = false, errorMessage = null, isSuccess = true)
+                    it.copy(isSaving = false, errorMessage = null, isSuccess = true).also { fetchHistory() }
                 } else {
                     it.copy(isSaving = false, errorMessage = result.exceptionOrNull()?.message ?: "Failed to save sleep log", isSuccess = false)
                 }

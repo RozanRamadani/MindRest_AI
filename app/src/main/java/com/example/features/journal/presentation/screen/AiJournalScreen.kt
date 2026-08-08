@@ -41,7 +41,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.LinearProgressIndicator
+import kotlinx.coroutines.delay
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.features.journal.presentation.viewmodel.AiJournalViewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -51,31 +60,39 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.core.designsystem.MindRestTheme
 
-data class ChatMessage(val id: String, val text: String, val isFromAi: Boolean, val time: String)
+data class ChatMessage(val id: String, val text: String, val isFromAi: Boolean, val time: String, val isLoading: Boolean = false)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiJournalScreen(
     onNavigateBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: AiJournalViewModel = viewModel()
 ) {
     var inputText by remember { mutableStateOf("") }
-    var messages by remember {
-        mutableStateOf(
-            listOf(
-                ChatMessage(
-                    id = "1",
-                    text = "Hai Aria, aku perhatikan hari ini pikiranmu sedang berat. Ingin menceritakan pelan-pelan apa yang mengganggumu?",
-                    isFromAi = true,
-                    time = "Now"
-                )
-            )
-        )
+    val messages by viewModel.messages.collectAsStateWithLifecycle()
+    val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
+    val saveSuccess by viewModel.saveSuccess.collectAsStateWithLifecycle()
+    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(saveSuccess, errorMessage) {
+        if (errorMessage != null) {
+            snackbarHostState.showSnackbar(message = errorMessage!!)
+            viewModel.onMessageShown()
+        } else if (saveSuccess) {
+            snackbarHostState.showSnackbar(message = "Diskusi berhasil disimpan ke Jurnal!")
+            delay(1000)
+            viewModel.onMessageShown()
+            onNavigateBack()
+        }
     }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -97,27 +114,8 @@ fun AiJournalScreen(
                     }
                 },
                 actions = {
-                    Box(
-                        modifier = Modifier
-                            .padding(end = 16.dp)
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.primary,
-                                        MaterialTheme.colorScheme.tertiary
-                                    )
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = "AI Therapist",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    TextButton(onClick = { viewModel.summarizeAndSaveChat() }) {
+                        Text("Akhiri & Simpan", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -131,6 +129,10 @@ fun AiJournalScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            if (isSaving) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            
             // Chat Message List
             LazyColumn(
                 modifier = Modifier
@@ -156,12 +158,7 @@ fun AiJournalScreen(
                 onInputTextChanged = { inputText = it },
                 onSendClick = {
                     if (inputText.isNotBlank()) {
-                        messages = messages + ChatMessage(
-                            id = System.currentTimeMillis().toString(),
-                            text = inputText,
-                            isFromAi = false,
-                            time = "Now"
-                        )
+                        viewModel.sendMessage(inputText)
                         inputText = ""
                     }
                 }
@@ -195,11 +192,21 @@ private fun ChatMessageBubble(message: ChatMessage) {
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .fillMaxWidth(0.85f)
         ) {
-            Text(
-                text = message.text,
-                color = contentColor,
-                style = MaterialTheme.typography.bodyMedium
-            )
+            // Check for a loading message (you can add isLoading to ChatMessage if you prefer,
+            // or just check for "Sedang mengetik...")
+            if (message.text == "Sedang mengetik..." && isFromAi) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = contentColor,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text(
+                    text = message.text,
+                    color = contentColor,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
 }

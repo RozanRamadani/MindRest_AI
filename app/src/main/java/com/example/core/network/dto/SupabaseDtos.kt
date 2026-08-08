@@ -22,3 +22,29 @@ data class MoodLogInsert(
     @SerialName("user_id") val userId: String,
     @SerialName("mood_score") val moodScore: Int
 )
+
+@Serializable
+data class JournalEntry(
+    @SerialName("id") val id: String,
+    @SerialName("user_id") val userId: String,
+    @SerialName("content") val content: String,
+    @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class SleepLog(
+    @SerialName("id") val id: String,
+    @SerialName("user_id") val userId: String,
+    @SerialName("bed_time") val bedTime: String,
+    @SerialName("wake_up_time") val wakeUpTime: String,
+    @SerialName("sleep_quality") val sleepQuality: String,
+    @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class MoodLog(
+    @SerialName("id") val id: String,
+    @SerialName("user_id") val userId: String,
+    @SerialName("mood_score") val moodScore: Int,
+    @SerialName("created_at") val createdAt: String
+)
